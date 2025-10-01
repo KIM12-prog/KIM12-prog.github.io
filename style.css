@@ -101,7 +101,7 @@ body {
 }
 
 
-/* 【追加】スマホ表示（レスポンシブ）のためのスタイル */
+/* スマホ表示（レスポンシブ）のためのスタイル */
 @media (max-width: 767px) {
     /* カードの文字サイズを少し小さく */
     .card-face {
@@ -121,5 +121,10 @@ body {
 
     #card-controls .btn {
         width: 100%; /* 横幅いっぱいに広げる */
+    }
+
+    /* ヘッダーのドロップダウンメニューの位置調整 */
+    .navbar-nav .dropdown-menu {
+        position: absolute;
     }
 }

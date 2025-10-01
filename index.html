@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>英単語帳アプリ v2.5</title>
+    <title>英単語帳アプリ v3.5 - 安定版</title>
     
     <meta name="theme-color" content="#0d6efd"/>
     <link rel="manifest" href="manifest.json">
@@ -22,15 +22,26 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#" data-page="learning-page">学習</a>
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#" data-page="learning-page">学習</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-page="creation-page">単語帳の管理</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" data-page="search-page">単語検索</a></li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item" id="login-menu">
+                        <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#auth-modal">
+                            <i class="bi bi-cloud-arrow-up-fill"></i> ログインしてデータを同期
+                        </button>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-page="creation-page">単語帳の管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-page="search-page">単語検索</a>
+                    <li class="nav-item dropdown" id="user-menu" style="display: none;">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <span id="user-email-display"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="upgrade-btn">プレミアムにアップグレード</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="logout-btn">ログアウト</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
@@ -38,177 +49,158 @@
     </nav>
 
     <main class="container my-4">
-        <div id="learning-page" class="page active">
-            <div id="learning-settings">
+        <div id="app-container">
+            <div id="learning-page" class="page active">
                 <div class="card bg-light mb-4">
                     <div class="card-body">
                         <h5 class="card-title"><i class="bi bi-info-circle-fill text-primary"></i> 使い方ガイド</h5>
                         <p class="card-text">
                             「単語帳の管理」のところで自分専用の単語帳を作ろう！<br>
-                            学習スタートを押すとフリップ形式で単語の勉強ができるよ。「わかった！」ボタンを押すと単語帳からその単語は削除され、「わかった（ストック）」ボタンと「わからない」ボタンを押すと単語帳からその単語は削除されないよ。また、「わからない」ボタンを押したらわからない単語を復習できるようまとめられるよ。この単語帳アプリを活用してたくさん勉強しよう！
+                            学習スタートを押すとフリップ形式で単語の勉強ができるよ。「わかった！」ボタンを押すと単語帳からその単語は削除され、「わかった（ストック）」ボタンと「わからない」ボタンを押すと単語帳からその単語は削除されないよ。また、「わからない」ボタンを押したらわからない単語を復習できるようまとめられるよ。この単語帳アプリを活用してたくさん勉強しよう！<br>
+                            また、学習中と「単語帳の管理」の所には、音声ボタンがあるので、ボタンを押して発音確認にも活用しよう！
                         </p>
                     </div>
                 </div>
-                <div class="card p-4 text-center">
-                    <h2 class="mb-4">学習を開始</h2>
-                    <div class="row g-3 justify-content-center">
-                        <div class="col-md-6">
-                            <select id="learning-wordbook-select" class="form-select form-select-lg"></select>
-                        </div>
-                        <div class="col-md-8 text-center">
-                            <div class="btn-group" role="group">
-                                <input type="radio" class="btn-check" name="learn-mode" id="en-to-jp-mode" value="en-to-jp" checked>
-                                <label class="btn btn-outline-primary" for="en-to-jp-mode">英語 → 日本語</label>
-                                <input type="radio" class="btn-check" name="learn-mode" id="jp-to-en-mode" value="jp-to-en">
-                                <label class="btn btn-outline-primary" for="jp-to-en-mode">日本語 → 英語</label>
+                <div id="learning-settings">
+                    <div class="card p-4 text-center">
+                        <h2 class="mb-4">学習を開始</h2>
+                        <div class="row g-3 justify-content-center">
+                            <div class="col-md-6"><select id="learning-wordbook-select" class="form-select form-select-lg"></select></div>
+                            <div class="col-md-8 text-center">
+                                <fieldset>
+                                    <legend class="fs-6 mb-2">出題形式</legend>
+                                    <div class="btn-group" role="group">
+                                        <input type="radio" class="btn-check" name="question-direction" id="en-to-jp-mode" value="en-to-jp" checked>
+                                        <label class="btn btn-outline-primary" for="en-to-jp-mode">英語 → 日本語</label>
+                                        <input type="radio" class="btn-check" name="question-direction" id="jp-to-en-mode" value="jp-to-en">
+                                        <label class="btn btn-outline-primary" for="jp-to-en-mode">日本語 → 英語</label>
+                                    </div>
+                                </fieldset>
                             </div>
-                        </div>
-                        <div class="col-md-12 mt-4">
-                            <button id="start-learning-btn" class="btn btn-primary btn-lg"><i class="bi bi-play-circle"></i> 学習スタート！</button>
-                        </div>
-                        <div class="col-md-12 mt-3">
-                             <button id="start-review-btn" class="btn btn-warning"><i class="bi bi-arrow-clockwise"></i> 「わからない」単語を復習 (<span id="review-count">0</span>語)</button>
+                            <div class="col-md-12 mt-4"><button id="start-learning-btn" class="btn btn-primary btn-lg"><i class="bi bi-play-circle"></i> 学習スタート！</button></div>
+                            <div class="col-md-12 mt-3"><button id="start-review-btn" class="btn btn-warning"><i class="bi bi-arrow-clockwise"></i> 「わからない」単語を復習 (<span id="review-count">0</span>語)</button></div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div id="learning-area" class="d-none">
-                 <div id="flashcard-container">
-                    <div id="flashcard">
-                        <div class="card-face card-front">
-                            <span id="card-front-text"></span>
-                            <button id="play-pronunciation-btn" class="btn btn-light pronunciation-btn"><i class="bi bi-volume-up-fill"></i></button>
+                <div id="learning-area" class="d-none">
+                    <div id="flashcard-container">
+                        <div id="flashcard">
+                            <div class="card-face card-front"><span id="card-front-text"></span><button id="play-pronunciation-btn" class="btn btn-light pronunciation-btn"><i class="bi bi-volume-up-fill"></i></button></div>
+                            <div class="card-face card-back"></div>
                         </div>
-                        <div class="card-face card-back"></div>
                     </div>
-                </div>
-                <p id="progress-text" class="text-center mt-3 fs-5"></p>
-                <div id="card-controls" class="d-flex justify-content-around mt-3">
-                    <button id="unknown-btn" class="btn btn-danger btn-lg w-30">わからない</button>
-                    <button id="known-stock-btn" class="btn btn-info btn-lg w-30">わかった(ストック)</button>
-                    <button id="known-btn" class="btn btn-success btn-lg w-30">わかった！</button>
-                </div>
-                <div class="text-center mt-3">
-                    <button id="stop-learning-btn" class="btn btn-secondary">学習を中断</button>
-                </div>
-            </div>
-        </div>
 
-        <div id="creation-page" class="page">
-            <h2>単語帳の管理</h2>
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">新しい単語帳を作成</h5>
-                            <div class="input-group">
-                                <input type="text" id="new-wordbook-name" class="form-control" placeholder="新しい単語帳の名前">
-                                <button id="create-wordbook-btn" class="btn btn-primary">作成</button>
+                    <p id="progress-text" class="text-center mt-3 fs-5"></p>
+                    <div id="card-controls" class="d-flex justify-content-around mt-3">
+                        <button id="unknown-btn" class="btn btn-danger btn-lg w-30">わからない</button>
+                        <button id="known-stock-btn" class="btn btn-info btn-lg w-30">わかった(ストック)</button>
+                        <button id="known-btn" class="btn btn-success btn-lg w-30">わかった！</button>
+                    </div>
+                    <div class="text-center mt-3"><button id="stop-learning-btn" class="btn btn-secondary">学習を中断</button></div>
+                </div>
+            </div>
+            <div id="creation-page" class="page">
+                <h2>単語帳の管理</h2>
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">新しい単語帳を作成</h5>
+                                <div class="input-group">
+                                    <input type="text" id="new-wordbook-name" class="form-control" placeholder="新しい単語帳の名前">
+                                    <button id="create-wordbook-btn" class="btn btn-primary">作成</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h5 class="card-title">単語帳を削除</h5>
+                                <div class="input-group">
+                                    <select id="delete-wordbook-select" class="form-select"></select>
+                                    <button id="delete-wordbook-btn" class="btn btn-danger"><i class="bi bi-trash"></i> 削除</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="card-title">単語帳を削除</h5>
-                            <div class="input-group">
-                                <select id="delete-wordbook-select" class="form-select"></select>
-                                <button id="delete-wordbook-btn" class="btn btn-danger"><i class="bi bi-trash"></i> 削除</button>
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">単語の追加</h5>
+                                <div class="mb-3"><select id="add-word-wordbook-select" class="form-select"></select></div>
+                                <div class="mb-2"><input type="text" id="new-english-word" class="form-control" placeholder="英語"></div>
+                                <div class="mb-3"><input type="text" id="new-japanese-word" class="form-control" placeholder="日本語"></div>
+                                <button id="add-word-btn" class="btn btn-primary w-100">単語を追加</button>
                             </div>
-                        </div>
-                    </div>
-                    <div class="card mt-4">
-                        <div class="card-body">
-                            <h5 class="card-title">データの管理</h5>
-                            <button id="export-btn" class="btn btn-outline-success me-2"><i class="bi bi-download"></i> エクスポート</button>
-                            <input type="file" id="import-file" class="d-none" accept=".json">
-                            <button id="import-btn" class="btn btn-outline-info"><i class="bi bi-upload"></i> インポート</button>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">単語の追加</h5>
-                            <div class="mb-3">
-                                <select id="add-word-wordbook-select" class="form-select"></select>
-                            </div>
-                            <div class="mb-2">
-                                <input type="text" id="new-english-word" class="form-control" placeholder="英語">
-                            </div>
-                            <div class="mb-3">
-                                <input type="text" id="new-japanese-word" class="form-control" placeholder="日本語">
-                            </div>
-                            <button id="add-word-btn" class="btn btn-primary w-100">単語を追加</button>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0">登録単語一覧</h5>
+                            <select id="view-wordbook-select" class="form-select w-auto"></select>
                         </div>
+                        <ul id="word-list" class="list-group"></ul>
                     </div>
                 </div>
             </div>
-             <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">登録単語一覧</h5>
-                        <select id="view-wordbook-select" class="form-select w-auto"></select>
-                    </div>
-                    <ul id="word-list" class="list-group"></ul>
-                </div>
-            </div>
-        </div>
-
-        <div id="search-page" class="page">
-             <h2>単語検索 & 追加</h2>
-             <div class="row">
-                 <div class="col-md-6 mb-4">
-                     <div class="card">
-                         <div class="card-body">
-                             <h5 class="card-title">Google翻訳で検索</h5>
-                             <p class="card-text text-muted">※Google翻訳のページが新しいタブで開きます。</p>
-                             <div class="input-group">
-                                 <input type="text" id="search-word-input" class="form-control" placeholder="検索したい単語を入力">
-                                 <button id="google-translate-btn" class="btn btn-primary">検索</button>
+            <div id="search-page" class="page">
+                 <h2>単語検索 & 追加</h2>
+                 <div class="row">
+                     <div class="col-md-6 mb-4">
+                         <div class="card">
+                             <div class="card-body">
+                                 <h5 class="card-title">Google翻訳で検索</h5>
+                                 <p class="card-text text-muted">※Google翻訳のページが新しいタブで開きます。</p>
+                                 <div class="input-group">
+                                     <input type="text" id="search-word-input" class="form-control" placeholder="検索したい単語を入力">
+                                     <button id="google-translate-btn" class="btn btn-primary">検索</button>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="col-md-6 mb-4">
+                         <div class="card">
+                             <div class="card-body">
+                                <h5 class="card-title">検索した単語を単語帳に追加</h5>
+                                 <p class="card-text text-muted">翻訳結果を以下に入力して追加できます。</p>
+                                 <div class="mb-3"><select id="add-searched-word-select" class="form-select"></select></div>
+                                 <div class="mb-2"><input type="text" id="searched-english-word" class="form-control" placeholder="英語"></div>
+                                 <div class="mb-2"><input type="text" id="searched-japanese-word" class="form-control" placeholder="日本語"></div>
+                                 <button id="add-from-search-btn" class="btn btn-primary w-100">この単語を追加</button>
                              </div>
                          </div>
                      </div>
                  </div>
-                 <div class="col-md-6 mb-4">
-                     <div class="card">
-                         <div class="card-body">
-                            <h5 class="card-title">検索した単語を単語帳に追加</h5>
-                             <p class="card-text text-muted">翻訳結果を以下に入力して追加できます。</p>
-                             <div class="mb-3">
-                                 <select id="add-searched-word-select" class="form-select"></select>
-                            </div>
-                             <div class="mb-2">
-                                 <input type="text" id="searched-english-word" class="form-control" placeholder="英語">
-                            </div>
-                            <div class="mb-2">
-                                <input type="text" id="searched-japanese-word" class="form-control" placeholder="日本語">
-                            </div>
-                             <button id="add-from-search-btn" class="btn btn-primary w-100">この単語を追加</button>
-                         </div>
-                     </div>
-                 </div>
-             </div>
+            </div>
         </div>
     </main>
-
+    
+    <div class="modal fade" id="auth-modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">ログイン / 新規登録</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label for="email-input" class="form-label">メールアドレス</label><input type="email" class="form-control" id="email-input" autocomplete="email"></div>
+                    <div class="mb-3"><label for="password-input" class="form-label">パスワード (6文字以上)</label><input type="password" class="form-control" id="password-input" autocomplete="current-password"></div>
+                    <div id="auth-error" class="text-danger small mt-3"></div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-primary px-4" id="login-btn">ログイン</button>
+                    <button type="button" class="btn btn-outline-primary" id="signup-btn">新規登録</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="edit-word-modal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">単語の編集</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title">単語の編集</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <input type="hidden" id="edit-book-index">
-                    <input type="hidden" id="edit-word-index">
-                    <div class="mb-3">
-                        <label for="edit-english-word" class="form-label">英語</label>
-                        <input type="text" class="form-control" id="edit-english-word">
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit-japanese-word" class="form-label">日本語</label>
-                        <input type="text" class="form-control" id="edit-japanese-word">
-                    </div>
+                    <input type="hidden" id="edit-wordbook-id">
+                    <input type="hidden" id="edit-word-en">
+                    <div class="mb-3"><label for="edit-english-word" class="form-label">英語</label><input type="text" class="form-control" id="edit-english-word" disabled></div>
+                    <div class="mb-3"><label for="edit-japanese-word" class="form-label">日本語</label><input type="text" class="form-control" id="edit-japanese-word"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
@@ -219,6 +211,23 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "YOUR_API_KEY", // あなたのキーに置き換えてください
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+    </script>
+    
     <script src="script.js"></script>
 </body>
 </html>
