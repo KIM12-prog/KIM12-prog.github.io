@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>英単語帳アプリ v3.5 - 安定版</title>
+    <title>英単語帳アプリ v4.0 - 分析機能</title>
     
     <meta name="theme-color" content="#0d6efd"/>
     <link rel="manifest" href="manifest.json">
@@ -12,6 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1905787283774435"
      crossorigin="anonymous"></script>
 </head>
@@ -28,6 +29,7 @@
                     <li class="nav-item"><a class="nav-link active" href="#" data-page="learning-page">学習</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" data-page="creation-page">単語帳の管理</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" data-page="search-page">単語検索</a></li>
+                    <li class="nav-item" id="stats-nav-link" style="display: none;"><a class="nav-link" href="#" data-page="stats-page">分析</a></li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item" id="login-menu">
@@ -91,7 +93,6 @@
                             <div class="card-face card-back"></div>
                         </div>
                     </div>
-
                     <p id="progress-text" class="text-center mt-3 fs-5"></p>
                     <div id="card-controls" class="d-flex justify-content-around mt-3">
                         <button id="unknown-btn" class="btn btn-danger btn-lg w-30">わからない</button>
@@ -175,12 +176,35 @@
                      </div>
                  </div>
             </div>
+            <div id="stats-page" class="page">
+                <h2>学習データの分析</h2>
+                <div id="stats-premium-gate" class="alert alert-warning" style="display: none;">
+                    <i class="bi bi-gem"></i> この機能はプレミアムプラン限定です。
+                </div>
+                <div id="stats-content">
+                    <div class="row">
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">総合 正解率</h5>
+                                    <div style="height: 300px;"><canvas id="overall-accuracy-chart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">苦手な単語 Top 5</h5>
+                                    <div style="height: 300px;"><canvas id="difficult-words-chart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
     
-    <footer class="container text-center py-4 my-4 border-top">
-        <a href="privacy.html" target="_blank">プライバシーポリシー</a>
-    </footer>
     <div class="modal fade" id="auth-modal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -221,12 +245,13 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
     <script>
       const firebaseConfig = {
-        apiKey: "YOUR_API_KEY", // あなたのキーに置き換えてください
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID"
+        apiKey: "AIzaSyA9fPg1y3zPKcOC_A52QmKE-YWJ8QL1Dbs",
+        authDomain: "my-wordbook-app-42adf.firebaseapp.com",
+        projectId: "my-wordbook-app-42adf",
+        storageBucket: "my-wordbook-app-42adf.firebasestorage.app",
+        messagingSenderId: "261251953691",
+        appId: "1:261251953691:web:63f24a926c52c636fd34be",
+        measurementId: "G-0981Z6EMDT"
       };
       firebase.initializeApp(firebaseConfig);
       const auth = firebase.auth();

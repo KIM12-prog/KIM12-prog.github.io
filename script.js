@@ -1,25 +1,26 @@
+// =======================================================================
+//  アプリケーション全体を管理するメインスクリプト
+// =======================================================================
+
 // --- グローバル変数 ---
 let currentUser = null;
 let userPlan = 'free';
 let wordbooks = [];
 let reviewList = [];
 let currentLearningSession = null;
-let editModal;
+let overallAccuracyChart = null;
+let difficultWordsChart = null;
 
-// --- DOM要素の参照 (グローバルに宣言) ---
-let navLinks, pages, creationPage, learningPage, searchPage, editModalElements, authElements;
+// --- DOM要素の参照 (グローバルに宣言し、後で初期化) ---
+let navLinks, pages, creationPage, learningPage, searchPage, editModalElements, authElements, statsElements;
+let editModal, authModal;
 
 // =======================================================================
 //  アプリケーションの起動処理
 // =======================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. DOM要素への参照をグローバル変数に格納 (ページが完全に読み込まれてから)
     initializeDOMReferences();
-    
-    // 2. すべてのボタンや入力欄の操作を一度だけ設定
     setupEventListeners();
-
-    // 3. Firebaseの認証状態の変化を監視し、状態に応じてアプリを初期化
     auth.onAuthStateChanged(user => {
         initializeApp(user);
     });
@@ -30,12 +31,12 @@ async function initializeApp(user) {
     currentUser = user;
     userPlan = 'free';
     
-    updateLoginUI(user);
-
     if (currentUser) {
         const userDoc = await db.collection('users').doc(currentUser.uid).get();
         if (userDoc.exists) userPlan = userDoc.data().plan || 'free';
     }
+
+    updateLoginUI(user);
     await loadData();
     switchPage('learning-page');
 }
@@ -103,6 +104,11 @@ function initializeDOMReferences() {
         logoutBtn: document.getElementById('logout-btn'),
         authError: document.getElementById('auth-error'),
         upgradeBtn: document.getElementById('upgrade-btn'),
+    };
+    statsElements = {
+        navLink: document.getElementById('stats-nav-link'),
+        premiumGate: document.getElementById('stats-premium-gate'),
+        content: document.getElementById('stats-content')
     };
 }
 
@@ -178,9 +184,16 @@ function updateLoginUI(user) {
         authElements.loginMenu.style.display = 'none';
         authElements.userMenu.style.display = 'block';
         authElements.userEmailDisplay.textContent = user.email;
+
+        if (userPlan === 'premium') {
+            statsElements.navLink.style.display = 'block';
+        } else {
+            statsElements.navLink.style.display = 'none';
+        }
     } else {
         authElements.loginMenu.style.display = 'block';
         authElements.userMenu.style.display = 'none';
+        statsElements.navLink.style.display = 'none';
     }
 }
 
@@ -235,6 +248,68 @@ function updateReviewCount() {
     learningPage.startReviewBtn.disabled = reviewList.length === 0;
 }
 
+// --- グラフ描画 ---
+function renderStatsPage() {
+    if (!currentUser || userPlan !== 'premium') {
+        statsElements.premiumGate.style.display = 'block';
+        statsElements.content.style.display = 'none';
+        return;
+    }
+    statsElements.premiumGate.style.display = 'none';
+    statsElements.content.style.display = 'block';
+
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+    let allWordsWithStats = [];
+
+    wordbooks.forEach(book => {
+        if (book.words) {
+            book.words.forEach(word => {
+                const correct = word.correct || 0;
+                const incorrect = word.incorrect || 0;
+                totalCorrect += correct;
+                totalIncorrect += incorrect;
+                if (incorrect > 0) {
+                    allWordsWithStats.push({ ...word, incorrect: incorrect });
+                }
+            });
+        }
+    });
+
+    const difficultWords = allWordsWithStats.sort((a, b) => b.incorrect - a.incorrect).slice(0, 5);
+
+    // 総合正解率グラフ
+    const accCtx = document.getElementById('overall-accuracy-chart').getContext('2d');
+    if (overallAccuracyChart) overallAccuracyChart.destroy();
+    overallAccuracyChart = new Chart(accCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['正解', '不正解'],
+            datasets: [{
+                data: [totalCorrect > 0 ? totalCorrect : 1, totalIncorrect],
+                backgroundColor: ['#198754', '#dc3545'],
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+    
+    // 苦手な単語グラフ
+    const diffCtx = document.getElementById('difficult-words-chart').getContext('2d');
+    if (difficultWordsChart) difficultWordsChart.destroy();
+    difficultWordsChart = new Chart(diffCtx, {
+        type: 'bar',
+        data: {
+            labels: difficultWords.map(w => w.en),
+            datasets: [{
+                label: '間違えた回数',
+                data: difficultWords.map(w => w.incorrect),
+                backgroundColor: '#0d6efd',
+            }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+    });
+}
+
 // --- イベントリスナー設定 ---
 function setupEventListeners() {
     authElements.loginBtn.addEventListener('click', async () => {
@@ -244,7 +319,6 @@ function setupEventListeners() {
             const userCredential = await auth.signInWithEmailAndPassword(email, password);
             authModal.hide();
             await mergeLocalDataToFirestore(userCredential.user.uid);
-            // onAuthStateChangedが自動でinitializeAppを呼ぶので、ここでは不要
         } catch (error) {
             authElements.authError.textContent = 'メールアドレスまたはパスワードが間違っています。';
         }
@@ -262,7 +336,6 @@ function setupEventListeners() {
             });
             authModal.hide();
             await mergeLocalDataToFirestore(userCredential.user.uid);
-            // onAuthStateChangedが自動でinitializeAppを呼ぶので、ここでは不要
         } catch (error) {
             if (error.code === 'auth/weak-password') {
                 authElements.authError.textContent = 'パスワードは6文字以上で入力してください。';
@@ -276,27 +349,23 @@ function setupEventListeners() {
     authElements.upgradeBtn.addEventListener('click', () => { alert('プレミアム機能の決済は現在準備中です。'); });
 
     navLinks.forEach(link => link.addEventListener('click', e => {
-        e.preventDefault(); switchPage(e.currentTarget.dataset.page);
+        e.preventDefault();
+        switchPage(e.currentTarget.dataset.page);
     }));
-
+    
     creationPage.createBtn.addEventListener('click', async () => {
         const newName = creationPage.newNameInput.value.trim();
         if (!newName) return;
         const limit = 3;
         if (!currentUser && wordbooks.length >= limit) {
-            alert(`単語帳は${limit}つまで作成できます。ログインすると、より多くの単語帳をクラウドに保存できます。`);
-            authModal.show();
-            return;
+            alert(`単語帳は${limit}つまで作成できます。`); authModal.show(); return;
         } else if (currentUser && userPlan === 'free' && wordbooks.length >= limit) {
-            alert(`無料プランでは単語帳は${limit}つまでです。プレミアムにアップグレードすると無制限に作成できます。`);
-            return;
+            alert(`無料プランでは単語帳は${limit}つまでです。`); return;
         }
         if (currentUser) {
             await db.collection('users').doc(currentUser.uid).collection('wordbooks').add({ name: newName, words: [] });
         } else {
-            if (wordbooks.find(b => b.name === newName)) {
-                alert('同じ名前の単語帳が既に存在します。'); return;
-            }
+            if (wordbooks.find(b => b.name === newName)) { alert('同じ名前の単語帳が既に存在します。'); return; }
             wordbooks.push({ name: newName, words: [] });
             await saveData();
         }
@@ -304,6 +373,28 @@ function setupEventListeners() {
         await loadData();
     });
 
+    creationPage.addWordBtn.addEventListener('click', async () => {
+        const selectedId = creationPage.addWordSelect.value;
+        const newEn = creationPage.newEnglishInput.value.trim();
+        const newJp = creationPage.newJapaneseInput.value.trim();
+        if (selectedId && newEn && newJp) {
+            const newWord = { en: newEn, jp: newJp, correct: 0, incorrect: 0 };
+            if (currentUser) {
+                const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(selectedId);
+                await bookRef.update({ words: firebase.firestore.FieldValue.arrayUnion(newWord) });
+            } else {
+                const book = wordbooks.find(b => b.name === selectedId);
+                if (book && !book.words.some(w => w.en.toLowerCase() === newEn.toLowerCase())) {
+                    book.words.push(newWord);
+                    await saveData();
+                }
+            }
+            creationPage.newEnglishInput.value = '';
+            creationPage.newJapaneseInput.value = '';
+            await loadData();
+        }
+    });
+    
     creationPage.deleteBtn.addEventListener('click', async () => {
         const selectedId = creationPage.deleteSelect.value;
         if (selectedId && confirm('本当にこの単語帳を削除しますか？')) {
@@ -313,27 +404,6 @@ function setupEventListeners() {
                 wordbooks = wordbooks.filter(book => book.name !== selectedId);
                 await saveData();
             }
-            await loadData();
-        }
-    });
-
-    creationPage.addWordBtn.addEventListener('click', async () => {
-        const selectedId = creationPage.addWordSelect.value;
-        const newEn = creationPage.newEnglishInput.value.trim();
-        const newJp = creationPage.newJapaneseInput.value.trim();
-        if (selectedId && newEn && newJp) {
-            if (currentUser) {
-                const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(selectedId);
-                await bookRef.update({ words: firebase.firestore.FieldValue.arrayUnion({ en: newEn, jp: newJp }) });
-            } else {
-                const book = wordbooks.find(b => b.name === selectedId);
-                if (book && !book.words.some(w => w.en.toLowerCase() === newEn.toLowerCase())) {
-                    book.words.push({ en: newEn, jp: newJp });
-                    await saveData();
-                }
-            }
-            creationPage.newEnglishInput.value = '';
-            creationPage.newJapaneseInput.value = '';
             await loadData();
         }
     });
@@ -382,12 +452,12 @@ function setupEventListeners() {
         if (currentUser) {
             const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(bookId);
             const book = wordbooks.find(b => b.id === bookId);
-            const newWords = book.words.map(w => w.en === oldEn ? { en: oldEn, jp: newJp } : w);
+            const newWords = book.words.map(w => w.en === oldEn ? { ...w, jp: newJp } : w);
             await bookRef.update({ words: newWords });
         } else {
             const book = wordbooks.find(b => b.name === bookId);
             const word = book.words.find(w => w.en === oldEn);
-            word.jp = newJp;
+            if (word) word.jp = newJp;
             await saveData();
         }
         await loadData();
@@ -430,13 +500,14 @@ function setupEventListeners() {
         const newEn = searchPage.addEnglishInput.value.trim();
         const newJp = searchPage.addJapaneseInput.value.trim();
         if (selectedId && newEn && newJp) {
+            const newWord = { en: newEn, jp: newJp, correct: 0, incorrect: 0 };
             if (currentUser) {
                 const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(selectedId);
-                await bookRef.update({ words: firebase.firestore.FieldValue.arrayUnion({ en: newEn, jp: newJp }) });
+                await bookRef.update({ words: firebase.firestore.FieldValue.arrayUnion(newWord) });
             } else {
                 const book = wordbooks.find(b => b.name === selectedId);
                 if (book && !book.words.some(w => w.en.toLowerCase() === newEn.toLowerCase())) {
-                    book.words.push({ en: newEn, jp: newJp });
+                    book.words.push(newWord);
                     await saveData();
                 }
             }
@@ -456,10 +527,29 @@ function setupEventListeners() {
 
 // --- 汎用関数 ---
 function switchPage(targetId) {
+    if (targetId === 'stats-page' && userPlan !== 'premium') {
+        if (currentUser) {
+            alert('この機能はプレミアムプラン限定です。');
+        } else {
+            alert('この機能を利用するにはログインが必要です。');
+            authModal.show();
+        }
+        return;
+    }
+    
     pages.forEach(page => page.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
-    navLinks.forEach(link => link.classList.remove('active'));
-    document.querySelector(`[data-page="${targetId}"]`).classList.add('active');
+    navLinks.forEach(link => {
+        if(link.dataset.page === targetId) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+
+    if (targetId === 'stats-page') {
+        renderStatsPage();
+    }
 }
 
 function playPronunciation(text) {
@@ -528,40 +618,63 @@ function handleAnswer(type) {
     }
     currentLearningSession.currentIndex++;
     
-    // 先にカードを表面に戻す処理を追加
     learningPage.flashcard.classList.remove('is-flipped');
 
-    // 少し待ってから次の単語を表示する
     setTimeout(() => {
         showNextWord();
-    }, 250); // 0.25秒待つ
+    }, 250);
 }
 
 async function finishLearning() {
     const session = currentLearningSession;
-    const { unknownWords, stockWords, words, isReviewMode, wordbookId } = session;
-    const knownWords = words.filter(w => !unknownWords.includes(w) && !stockWords.includes(w));
+    if (!session) return;
+
+    if (currentUser && !session.isReviewMode) {
+        const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(session.wordbookId);
+        try {
+            await db.runTransaction(async (transaction) => {
+                const bookDoc = await transaction.get(bookRef);
+                if (!bookDoc.exists) { throw "単語帳が見つかりません"; }
+                
+                let newWords = bookDoc.data().words || [];
+
+                session.words.forEach(sessionWord => {
+                    const wordIndex = newWords.findIndex(w => w.en === sessionWord.en);
+                    if (wordIndex > -1) {
+                        const isIncorrect = session.unknownWords.some(uw => uw.en === sessionWord.en);
+                        newWords[wordIndex].correct = (newWords[wordIndex].correct || 0) + (isIncorrect ? 0 : 1);
+                        newWords[wordIndex].incorrect = (newWords[wordIndex].incorrect || 0) + (isIncorrect ? 1 : 0);
+                    }
+                });
+                
+                transaction.update(bookRef, { words: newWords });
+            });
+        } catch (e) {
+            console.error("学習結果の保存に失敗しました: ", e);
+        }
+    }
     
-    unknownWords.forEach(unknownWord => {
+    const knownWords = session.words.filter(w => !session.unknownWords.includes(w) && !session.stockWords.includes(w));
+    
+    session.unknownWords.forEach(unknownWord => {
+        const newReviewWord = { en: unknownWord.en, jp: unknownWord.jp, correct: 0, incorrect: 0 };
         if (!reviewList.some(reviewWord => reviewWord.en === unknownWord.en)) {
-            reviewList.push(unknownWord);
+            reviewList.push(newReviewWord);
         }
     });
-
-    if (isReviewMode) {
-        const learnedInReview = [...knownWords, ...stockWords];
-        reviewList = reviewList.filter(reviewWord =>
-            !learnedInReview.some(learned => learned.en === reviewWord.en)
-        );
-    } else {
-        const bookRefId = currentUser ? wordbookId : wordbooks.findIndex(b => b.name === wordbookId);
-        if ( (currentUser && bookRefId) || (!currentUser && bookRefId > -1) ) {
-            const book = currentUser ? wordbooks.find(b => b.id === bookRefId) : wordbooks[bookRefId];
-            if (book) {
-                book.words = book.words.filter(originalWord =>
-                    !knownWords.some(known => known.en === originalWord.en)
-                );
-            }
+    
+    if (session.isReviewMode) {
+        const learnedInReview = session.words.filter(w => !session.unknownWords.includes(w));
+        reviewList = reviewList.filter(reviewWord => !learnedInReview.some(learned => learned.en === reviewWord.en));
+    } else if (!currentUser) { // ゲストモードでの「わかった！」単語の削除
+        const book = wordbooks.find(b => b.name === session.wordbookId);
+        if (book) {
+            book.words = book.words.filter(originalWord => !knownWords.some(known => known.en === originalWord.en));
+        }
+    } else { // ログインユーザーの「わかった！」単語の削除
+        const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(session.wordbookId);
+        if (knownWords.length > 0) {
+            await bookRef.update({ words: firebase.firestore.FieldValue.arrayRemove(...knownWords) });
         }
     }
     
