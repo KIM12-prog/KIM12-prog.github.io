@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>英単語帳アプリ v4.0 - 分析機能</title>
+    <title>英単語帳アプリ v4.1 - 発音練習機能</title>
     
+    <!-- PWA対応 -->
     <meta name="theme-color" content="#0d6efd"/>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="app-icon-192.png">
 
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.jsライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1905787283774435"
      crossorigin="anonymous"></script>
@@ -54,6 +59,7 @@
 
     <main class="container my-4">
         <div id="app-container">
+            <!-- 学習ページ -->
             <div id="learning-page" class="page active">
                 <div class="card bg-light mb-4">
                     <div class="card-body">
@@ -81,20 +87,50 @@
                                     </div>
                                 </fieldset>
                             </div>
+                            <div class="col-md-8 text-center mt-3">
+                                <fieldset>
+                                    <legend class="fs-6 mb-2">学習モード</legend>
+                                    <div class="btn-group" role="group">
+                                        <input type="radio" class="btn-check" name="learn-mode" id="mode-flashcard" value="flashcard" checked>
+                                        <label class="btn btn-outline-secondary" for="mode-flashcard"><i class="bi bi-stack"></i> カード</label>
+                                        
+                                        <input type="radio" class="btn-check" name="learn-mode" id="mode-pronunciation" value="pronunciation" disabled>
+                                        <label class="btn btn-outline-secondary" for="mode-pronunciation" id="pronunciation-mode-label">
+                                            <i class="bi bi-mic"></i> 発音 <span class="badge bg-warning text-dark">Premium</span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                            </div>
                             <div class="col-md-12 mt-4"><button id="start-learning-btn" class="btn btn-primary btn-lg"><i class="bi bi-play-circle"></i> 学習スタート！</button></div>
                             <div class="col-md-12 mt-3"><button id="start-review-btn" class="btn btn-warning"><i class="bi bi-arrow-clockwise"></i> 「わからない」単語を復習 (<span id="review-count">0</span>語)</button></div>
                         </div>
                     </div>
                 </div>
                 <div id="learning-area" class="d-none">
-                    <div id="flashcard-container">
+                    <!-- フラッシュカード -->
+                    <div id="flashcard-container" class="d-none">
                         <div id="flashcard">
                             <div class="card-face card-front"><span id="card-front-text"></span><button id="play-pronunciation-btn" class="btn btn-light pronunciation-btn"><i class="bi bi-volume-up-fill"></i></button></div>
                             <div class="card-face card-back"></div>
                         </div>
                     </div>
+
+                    <!-- 発音練習 -->
+                    <div id="pronunciation-container" class="d-none text-center">
+                         <div class="card">
+                            <div class="card-body">
+                                <h2 id="pronunciation-question-text" class="mb-4 display-4"></h2>
+                                <button id="start-recognition-btn" class="btn btn-primary btn-lg mb-3" style="width: 100px; height: 100px; border-radius: 50%;">
+                                    <i class="bi bi-mic-fill fs-1"></i>
+                                </button>
+                                <div id="recognition-feedback" class="mt-3 fs-5 fw-bold">タップして発音</div>
+                                <div id="recognition-result" class="mt-2 text-muted" style="min-height: 24px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <p id="progress-text" class="text-center mt-3 fs-5"></p>
-                    <div id="card-controls" class="d-flex justify-content-around mt-3">
+                    <div id="card-controls" class="d-flex justify-content-around mt-3 d-none">
                         <button id="unknown-btn" class="btn btn-danger btn-lg w-30">わからない</button>
                         <button id="known-stock-btn" class="btn btn-info btn-lg w-30">わかった(ストック)</button>
                         <button id="known-btn" class="btn btn-success btn-lg w-30">わかった！</button>
@@ -102,6 +138,7 @@
                     <div class="text-center mt-3"><button id="stop-learning-btn" class="btn btn-secondary">学習を中断</button></div>
                 </div>
             </div>
+            <!-- 単語帳作成・管理ページ -->
             <div id="creation-page" class="page">
                 <h2>単語帳の管理</h2>
                 <div class="row">
@@ -147,6 +184,7 @@
                     </div>
                 </div>
             </div>
+            <!-- 単語検索ページ -->
             <div id="search-page" class="page">
                  <h2>単語検索 & 追加</h2>
                  <div class="row">
@@ -176,6 +214,7 @@
                      </div>
                  </div>
             </div>
+            <!-- 分析ページ -->
             <div id="stats-page" class="page">
                 <h2>学習データの分析</h2>
                 <div id="stats-premium-gate" class="alert alert-warning" style="display: none;">

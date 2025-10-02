@@ -67,10 +67,15 @@ function initializeDOMReferences() {
         learningArea: document.getElementById('learning-area'),
         settings: document.getElementById('learning-settings'),
         flashcardContainer: document.getElementById('flashcard-container'),
+        pronunciationContainer: document.getElementById('pronunciation-container'),
         flashcard: document.getElementById('flashcard'),
         cardFrontText: document.getElementById('card-front-text'),
         pronunciationBtn: document.getElementById('play-pronunciation-btn'),
         cardBack: document.querySelector('.card-back'),
+        pronunciationQuestionText: document.getElementById('pronunciation-question-text'),
+        startRecognitionBtn: document.getElementById('start-recognition-btn'),
+        recognitionFeedback: document.getElementById('recognition-feedback'),
+        recognitionResult: document.getElementById('recognition-result'),
         progressText: document.getElementById('progress-text'),
         cardControls: document.getElementById('card-controls'),
         unknownBtn: document.getElementById('unknown-btn'),
@@ -104,6 +109,7 @@ function initializeDOMReferences() {
         logoutBtn: document.getElementById('logout-btn'),
         authError: document.getElementById('auth-error'),
         upgradeBtn: document.getElementById('upgrade-btn'),
+        pronunciationModeInput: document.getElementById('mode-pronunciation'),
     };
     statsElements = {
         navLink: document.getElementById('stats-nav-link'),
@@ -187,13 +193,16 @@ function updateLoginUI(user) {
 
         if (userPlan === 'premium') {
             statsElements.navLink.style.display = 'block';
+            authElements.pronunciationModeInput.disabled = false;
         } else {
             statsElements.navLink.style.display = 'none';
+            authElements.pronunciationModeInput.disabled = true;
         }
     } else {
         authElements.loginMenu.style.display = 'block';
         authElements.userMenu.style.display = 'none';
         statsElements.navLink.style.display = 'none';
+        authElements.pronunciationModeInput.disabled = true;
     }
 }
 
@@ -278,7 +287,6 @@ function renderStatsPage() {
 
     const difficultWords = allWordsWithStats.sort((a, b) => b.incorrect - a.incorrect).slice(0, 5);
 
-    // 総合正解率グラフ
     const accCtx = document.getElementById('overall-accuracy-chart').getContext('2d');
     if (overallAccuracyChart) overallAccuracyChart.destroy();
     overallAccuracyChart = new Chart(accCtx, {
@@ -293,7 +301,6 @@ function renderStatsPage() {
         options: { responsive: true, maintainAspectRatio: false }
     });
     
-    // 苦手な単語グラフ
     const diffCtx = document.getElementById('difficult-words-chart').getContext('2d');
     if (difficultWordsChart) difficultWordsChart.destroy();
     difficultWordsChart = new Chart(diffCtx, {
@@ -480,6 +487,10 @@ function setupEventListeners() {
         else alert('復習する単語がありません。');
     });
 
+    learningPage.startRecognitionBtn.addEventListener('click', () => {
+        startPronunciationRecognition();
+    });
+
     learningPage.pronunciationBtn.addEventListener('click', e => { e.stopPropagation(); playPronunciation(learningPage.cardFrontText.textContent); });
     learningPage.stopBtn.addEventListener('click', stopLearning);
     learningPage.flashcard.addEventListener('click', () => learningPage.flashcard.classList.toggle('is-flipped'));
@@ -540,11 +551,8 @@ function switchPage(targetId) {
     pages.forEach(page => page.classList.remove('active'));
     document.getElementById(targetId).classList.add('active');
     navLinks.forEach(link => {
-        if(link.dataset.page === targetId) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
+        if(link.dataset.page === targetId) link.classList.add('active');
+        else link.classList.remove('active');
     });
 
     if (targetId === 'stats-page') {
@@ -566,14 +574,17 @@ function playPronunciation(text) {
 
 // --- 学習セッション ---
 function startLearning(wordsToLearn, isReviewMode = false, bookId = null) {
+    const learnMode = document.querySelector('input[name="learn-mode"]:checked').value;
+    if (learnMode === 'pronunciation' && document.querySelector('input[name="question-direction"]:checked').value === 'jp-to-en') {
+        alert('発音練習モードは「英語→日本語」の出題形式でのみ利用できます。');
+        return;
+    }
     currentLearningSession = {
         words: [...wordsToLearn].sort(() => Math.random() - 0.5),
         currentIndex: 0,
         questionDirection: document.querySelector('input[name="question-direction"]:checked').value,
-        unknownWords: [],
-        stockWords: [],
-        isReviewMode,
-        wordbookId: bookId
+        learnMode: learnMode,
+        unknownWords: [], stockWords: [], isReviewMode, wordbookId
     };
     learningPage.settings.classList.add('d-none');
     learningPage.learningArea.classList.remove('d-none');
@@ -588,14 +599,19 @@ function stopLearning() {
 
 function showNextWord() {
     if (!currentLearningSession) return;
+    learningPage.flashcardContainer.classList.add('d-none');
+    learningPage.pronunciationContainer.classList.add('d-none');
+    learningPage.cardControls.classList.add('d-none');
     const session = currentLearningSession;
     if (session.currentIndex >= session.words.length) {
-        finishLearning();
-        return;
+        finishLearning(); return;
     }
     const word = session.words[session.currentIndex];
     learningPage.progressText.textContent = `${session.currentIndex + 1} / ${session.words.length}`;
-    showFlashcardWord(word);
+    switch (session.learnMode) {
+        case 'flashcard': showFlashcardWord(word); break;
+        case 'pronunciation': showPronunciationWord(word); break;
+    }
 }
 
 function showFlashcardWord(word) {
@@ -606,6 +622,52 @@ function showFlashcardWord(word) {
     learningPage.cardFrontText.textContent = (questionDirection === 'en-to-jp') ? word.en : word.jp;
     learningPage.cardBack.textContent = (questionDirection === 'en-to-jp') ? word.jp : word.en;
     learningPage.pronunciationBtn.style.display = (questionDirection === 'en-to-jp') ? 'flex' : 'none';
+}
+
+function showPronunciationWord(word) {
+    learningPage.pronunciationContainer.classList.remove('d-none');
+    learningPage.pronunciationQuestionText.textContent = word.en;
+    learningPage.recognitionFeedback.textContent = 'タップして発音';
+    learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold';
+    learningPage.recognitionResult.textContent = '';
+    learningPage.startRecognitionBtn.disabled = false;
+}
+
+function startPronunciationRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert('お使いのブラウザは音声認識に対応していません。'); return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    const word = currentLearningSession.words[currentLearningSession.currentIndex];
+    const originalWord = word.en.toLowerCase().replace(/[^a-z0-9\s]/gi, '');
+
+    recognition.onstart = () => {
+        learningPage.recognitionFeedback.textContent = '認識中...';
+        learningPage.startRecognitionBtn.disabled = true;
+    };
+    recognition.onerror = () => {
+        learningPage.recognitionFeedback.textContent = 'エラーが発生しました';
+        learningPage.startRecognitionBtn.disabled = false;
+    };
+    recognition.onend = () => {
+        learningPage.startRecognitionBtn.disabled = false;
+    };
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase().replace(/[^a-z0-9\s]/gi, '');
+        learningPage.recognitionResult.textContent = `認識結果: ${transcript}`;
+        if (transcript === originalWord) {
+            learningPage.recognitionFeedback.textContent = '正解！';
+            learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold text-success';
+        } else {
+            learningPage.recognitionFeedback.textContent = 'もう一度試してみましょう';
+            learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold text-danger';
+        }
+        learningPage.cardControls.classList.remove('d-none');
+    };
+    recognition.start();
 }
 
 function handleAnswer(type) {
@@ -619,7 +681,6 @@ function handleAnswer(type) {
     currentLearningSession.currentIndex++;
     
     learningPage.flashcard.classList.remove('is-flipped');
-
     setTimeout(() => {
         showNextWord();
     }, 250);
@@ -637,7 +698,6 @@ async function finishLearning() {
                 if (!bookDoc.exists) { throw "単語帳が見つかりません"; }
                 
                 let newWords = bookDoc.data().words || [];
-
                 session.words.forEach(sessionWord => {
                     const wordIndex = newWords.findIndex(w => w.en === sessionWord.en);
                     if (wordIndex > -1) {
@@ -646,7 +706,6 @@ async function finishLearning() {
                         newWords[wordIndex].incorrect = (newWords[wordIndex].incorrect || 0) + (isIncorrect ? 1 : 0);
                     }
                 });
-                
                 transaction.update(bookRef, { words: newWords });
             });
         } catch (e) {
@@ -666,12 +725,10 @@ async function finishLearning() {
     if (session.isReviewMode) {
         const learnedInReview = session.words.filter(w => !session.unknownWords.includes(w));
         reviewList = reviewList.filter(reviewWord => !learnedInReview.some(learned => learned.en === reviewWord.en));
-    } else if (!currentUser) { // ゲストモードでの「わかった！」単語の削除
+    } else if (!currentUser) {
         const book = wordbooks.find(b => b.name === session.wordbookId);
-        if (book) {
-            book.words = book.words.filter(originalWord => !knownWords.some(known => known.en === originalWord.en));
-        }
-    } else { // ログインユーザーの「わかった！」単語の削除
+        if (book) book.words = book.words.filter(originalWord => !knownWords.some(known => known.en === originalWord.en));
+    } else {
         const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(session.wordbookId);
         if (knownWords.length > 0) {
             await bookRef.update({ words: firebase.firestore.FieldValue.arrayRemove(...knownWords) });
