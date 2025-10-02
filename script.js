@@ -536,7 +536,13 @@ function handleAnswer(type) {
         currentLearningSession.stockWords.push(word);
     }
     currentLearningSession.currentIndex++;
-    showNextWord();
+    // 先にカードを表面に戻す
+    learningPage.flashcard.classList.remove('is-flipped');
+
+    // 少し時間をおいてから次の単語を表示する
+    setTimeout(() => {
+        showNextWord();
+    }, 250); // 0.25秒
 }
 
 async function finishLearning() {
