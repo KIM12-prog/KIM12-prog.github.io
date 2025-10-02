@@ -363,12 +363,24 @@ function setupEventListeners() {
     creationPage.createBtn.addEventListener('click', async () => {
         const newName = creationPage.newNameInput.value.trim();
         if (!newName) return;
-        const limit = 3;
-        if (!currentUser && wordbooks.length >= limit) {
-            alert(`単語帳は${limit}つまで作成できます。`); authModal.show(); return;
-        } else if (currentUser && userPlan === 'free' && wordbooks.length >= limit) {
-            alert(`無料プランでは単語帳は${limit}つまでです。`); return;
+        
+        // ▼▼▼ ここから制限ロジック ▼▼▼
+        if (userPlan === 'premium') {
+            // プレミアムプランは無制限なので何もしない
+        } else {
+            const limit = currentUser ? 5 : 2; // ログインユーザーは5個、ゲストは2個
+            if (wordbooks.length >= limit) {
+                if (currentUser) {
+                    alert(`無料プランでは単語帳は${limit}つまでです。プレミアムにアップグレードすると無制限に作成できます。`);
+                } else {
+                    alert(`単語帳は${limit}つまで作成できます。ログインすると${5}つまで作成可能です。`);
+                    authModal.show();
+                }
+                return;
+            }
         }
+        // ▲▲▲ ここまで制限ロジック ▲▲▲
+
         if (currentUser) {
             await db.collection('users').doc(currentUser.uid).collection('wordbooks').add({ name: newName, words: [] });
         } else {
@@ -401,7 +413,7 @@ function setupEventListeners() {
             await loadData();
         }
     });
-    
+
     creationPage.deleteBtn.addEventListener('click', async () => {
         const selectedId = creationPage.deleteSelect.value;
         if (selectedId && confirm('本当にこの単語帳を削除しますか？')) {
@@ -464,7 +476,7 @@ function setupEventListeners() {
         } else {
             const book = wordbooks.find(b => b.name === bookId);
             const word = book.words.find(w => w.en === oldEn);
-            if (word) word.jp = newJp;
+if (word) word.jp = newJp;
             await saveData();
         }
         await loadData();
@@ -485,10 +497,6 @@ function setupEventListeners() {
     learningPage.startReviewBtn.addEventListener('click', () => {
         if(reviewList.length > 0) startLearning(reviewList, true);
         else alert('復習する単語がありません。');
-    });
-
-    learningPage.startRecognitionBtn.addEventListener('click', () => {
-        startPronunciationRecognition();
     });
 
     learningPage.pronunciationBtn.addEventListener('click', e => { e.stopPropagation(); playPronunciation(learningPage.cardFrontText.textContent); });
@@ -574,17 +582,14 @@ function playPronunciation(text) {
 
 // --- 学習セッション ---
 function startLearning(wordsToLearn, isReviewMode = false, bookId = null) {
-    const learnMode = document.querySelector('input[name="learn-mode"]:checked').value;
-    if (learnMode === 'pronunciation' && document.querySelector('input[name="question-direction"]:checked').value === 'jp-to-en') {
-        alert('発音練習モードは「英語→日本語」の出題形式でのみ利用できます。');
-        return;
-    }
     currentLearningSession = {
         words: [...wordsToLearn].sort(() => Math.random() - 0.5),
         currentIndex: 0,
         questionDirection: document.querySelector('input[name="question-direction"]:checked').value,
-        learnMode: learnMode,
-        unknownWords: [], stockWords: [], isReviewMode, wordbookId
+        unknownWords: [],
+        stockWords: [],
+        isReviewMode,
+        wordbookId
     };
     learningPage.settings.classList.add('d-none');
     learningPage.learningArea.classList.remove('d-none');
@@ -599,19 +604,14 @@ function stopLearning() {
 
 function showNextWord() {
     if (!currentLearningSession) return;
-    learningPage.flashcardContainer.classList.add('d-none');
-    learningPage.pronunciationContainer.classList.add('d-none');
-    learningPage.cardControls.classList.add('d-none');
     const session = currentLearningSession;
     if (session.currentIndex >= session.words.length) {
-        finishLearning(); return;
+        finishLearning();
+        return;
     }
     const word = session.words[session.currentIndex];
     learningPage.progressText.textContent = `${session.currentIndex + 1} / ${session.words.length}`;
-    switch (session.learnMode) {
-        case 'flashcard': showFlashcardWord(word); break;
-        case 'pronunciation': showPronunciationWord(word); break;
-    }
+    showFlashcardWord(word);
 }
 
 function showFlashcardWord(word) {
@@ -622,52 +622,6 @@ function showFlashcardWord(word) {
     learningPage.cardFrontText.textContent = (questionDirection === 'en-to-jp') ? word.en : word.jp;
     learningPage.cardBack.textContent = (questionDirection === 'en-to-jp') ? word.jp : word.en;
     learningPage.pronunciationBtn.style.display = (questionDirection === 'en-to-jp') ? 'flex' : 'none';
-}
-
-function showPronunciationWord(word) {
-    learningPage.pronunciationContainer.classList.remove('d-none');
-    learningPage.pronunciationQuestionText.textContent = word.en;
-    learningPage.recognitionFeedback.textContent = 'タップして発音';
-    learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold';
-    learningPage.recognitionResult.textContent = '';
-    learningPage.startRecognitionBtn.disabled = false;
-}
-
-function startPronunciationRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        alert('お使いのブラウザは音声認識に対応していません。'); return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    const word = currentLearningSession.words[currentLearningSession.currentIndex];
-    const originalWord = word.en.toLowerCase().replace(/[^a-z0-9\s]/gi, '');
-
-    recognition.onstart = () => {
-        learningPage.recognitionFeedback.textContent = '認識中...';
-        learningPage.startRecognitionBtn.disabled = true;
-    };
-    recognition.onerror = () => {
-        learningPage.recognitionFeedback.textContent = 'エラーが発生しました';
-        learningPage.startRecognitionBtn.disabled = false;
-    };
-    recognition.onend = () => {
-        learningPage.startRecognitionBtn.disabled = false;
-    };
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase().replace(/[^a-z0-9\s]/gi, '');
-        learningPage.recognitionResult.textContent = `認識結果: ${transcript}`;
-        if (transcript === originalWord) {
-            learningPage.recognitionFeedback.textContent = '正解！';
-            learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold text-success';
-        } else {
-            learningPage.recognitionFeedback.textContent = 'もう一度試してみましょう';
-            learningPage.recognitionFeedback.className = 'mt-3 fs-5 fw-bold text-danger';
-        }
-        learningPage.cardControls.classList.remove('d-none');
-    };
-    recognition.start();
 }
 
 function handleAnswer(type) {
@@ -681,6 +635,7 @@ function handleAnswer(type) {
     currentLearningSession.currentIndex++;
     
     learningPage.flashcard.classList.remove('is-flipped');
+
     setTimeout(() => {
         showNextWord();
     }, 250);
@@ -698,6 +653,7 @@ async function finishLearning() {
                 if (!bookDoc.exists) { throw "単語帳が見つかりません"; }
                 
                 let newWords = bookDoc.data().words || [];
+
                 session.words.forEach(sessionWord => {
                     const wordIndex = newWords.findIndex(w => w.en === sessionWord.en);
                     if (wordIndex > -1) {
@@ -706,6 +662,7 @@ async function finishLearning() {
                         newWords[wordIndex].incorrect = (newWords[wordIndex].incorrect || 0) + (isIncorrect ? 1 : 0);
                     }
                 });
+                
                 transaction.update(bookRef, { words: newWords });
             });
         } catch (e) {
@@ -725,13 +682,13 @@ async function finishLearning() {
     if (session.isReviewMode) {
         const learnedInReview = session.words.filter(w => !session.unknownWords.includes(w));
         reviewList = reviewList.filter(reviewWord => !learnedInReview.some(learned => learned.en === reviewWord.en));
-    } else if (!currentUser) {
-        const book = wordbooks.find(b => b.name === session.wordbookId);
-        if (book) book.words = book.words.filter(originalWord => !knownWords.some(known => known.en === originalWord.en));
     } else {
-        const bookRef = db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(session.wordbookId);
-        if (knownWords.length > 0) {
-            await bookRef.update({ words: firebase.firestore.FieldValue.arrayRemove(...knownWords) });
+        const book = currentUser ? wordbooks.find(b => b.id === session.wordbookId) : wordbooks.find(b => b.name === session.wordbookId);
+        if (book) {
+            book.words = book.words.filter(originalWord => !knownWords.some(known => known.en === originalWord.en));
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).collection('wordbooks').doc(session.wordbookId).update({ words: book.words });
+            }
         }
     }
     
